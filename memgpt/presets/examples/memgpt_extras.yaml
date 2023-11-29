@@ -13,3 +13,7 @@ functions:
   - "append_to_text_file"
   # internet access
   - "http_request"
+  # TTS
+  - "speak_tts"
+  # Networking
+  - "ping_address"
