@@ -9,8 +9,6 @@ import os
 
 
 from typing import List, Optional
-from abc import abstractmethod
-import numpy as np
 from tqdm import tqdm
 
 
@@ -25,10 +23,6 @@ class TableType:
     DOCUMENTS = "documents"
     USERS = "users"
     AGENTS = "agents"
-
-
-# Defining schema objects:
-# Note: user/agent can borrow from MemGPTConfig/AgentConfig classes
 
 
 class StorageConnector:
@@ -59,15 +53,15 @@ class StorageConnector:
         storage_type = MemGPTConfig.load().recall_storage_type
 
         if storage_type == "local":
-            from memgpt.connectors.local import VectorIndexStorageConnector
+            from memgpt.connectors.local import InMemoryStorageConnector
 
             # maintains in-memory list for storage
-            return InMemoryStorageConnector(name=name, agent_config=agent_config)
+            return InMemoryStorageConnector(name=name, agent_config=agent_config, table=TableType.RECALL_MEMORY)
 
         elif storage_type == "postgres":
             from memgpt.connectors.db import PostgresStorageConnector
 
-            return PostgresStorageConnector(name=name, agent_config=agent_config)
+            return PostgresStorageConnector(name=name, agent_config=agent_config, table_type=TableType.RECALL_MEMORY)
 
         else:
             raise NotImplementedError(f"Storage type {storage_type} not implemented")
