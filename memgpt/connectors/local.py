@@ -153,27 +153,35 @@ class InMemoryStorageConnector(StorageConnector):
 
         self.rows = []
 
-    def get_all_paginated(self, page_size: int) -> Iterator[List[Record]]:
+    @abstractmethod
+    def get_all_paginated(self, page_size: int, filters: Optional[Dict] = {}) -> Iterator[List[Record]]:
         pass
 
-    def get_all(self, limit: int) -> List[Record]:
+    @abstractmethod
+    def get_all(self, limit: int, filters: Optional[Dict]) -> List[Record]:
         pass
 
+    @abstractmethod
     def get(self, id: str) -> Record:
         pass
 
-    def insert(self, passage: Record):
+    @abstractmethod
+    def insert(self, record: Record):
+        self.rows.append(record)
+
+    @abstractmethod
+    def insert_many(self, records: List[Record]):
+        self.rows += records
+
+    @abstractmethod
+    def query(self, query: str, query_vec: List[float], top_k: int = 10, filters: Optional[Dict] = {}) -> List[Record]:
         pass
 
-    def insert_many(self, passages: List[Record]):
-        pass
-
-    def query(self, query: str, query_vec: List[float], top_k: int = 10) -> List[Record]:
-        pass
-
+    @abstractmethod
     def save(self):
         """Save state of storage connector"""
         pass
 
-    def size(self):
-        return len(self.rows)
+    @abstractmethod
+    def size(self, filters: Optional[Dict] = {}) -> int:
+        pass
