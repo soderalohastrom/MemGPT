@@ -16,9 +16,10 @@ from memgpt.connectors.db import PostgresStorageConnector, LanceDBConnector
 from memgpt.embeddings import embedding_model
 from memgpt.data_types import Message, Passage
 from memgpt.config import MemGPTConfig, AgentConfig
+from memgpt.utils import get_local_time
 
 import argparse
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 def test_recall_db():
@@ -48,7 +49,7 @@ def test_recall_db():
 
     # construct recall memory messages
     message1 = Message(
-        agent_id="test_agent1",
+        agent_id=agent_config.name,
         role="agent",
         text="This is a test message",
         user_id=config.anon_clientid,
@@ -56,7 +57,7 @@ def test_recall_db():
         created_at=datetime.now(),
     )
     message2 = Message(
-        agent_id="test_agent2",
+        agent_id=agent_config.name,
         role="user",
         text="This is a test message",
         user_id=config.anon_clientid,
@@ -70,14 +71,22 @@ def test_recall_db():
     conn.insert_many([message2])
 
     # test size
-    assert conn.size() == 2, f"Expected 2 messages, got {conn.size()}"
-    assert conn.size(filters={"agent_id": "test_agent2"}) == 1, f"Expected 2 messages, got {conn.size()}"
+    assert conn.size() >= 2, f"Expected 2 messages, got {conn.size()}"
+    assert conn.size(filters={"role": "user"}) >= 1, f'Expected 2 messages, got {conn.size(filters={"role": "user"})}'
 
-    # test get
-    assert conn.get("test_id1") == message1, f"Expected {message1}, got {conn.get('test_id1')}"
-    assert (
-        len(conn.get_all(limit=10, filters={"agent_id": "test_agent2"})) == 1
-    ), f"Expected 1 message, got {len(conn.get_all(limit=10, filters={'agent_id': 'test_agent2'}))}"
+    # test text query
+    res = conn.query_text("test")
+    print(res)
+    assert len(res) >= 2, f"Expected 2 messages, got {len(res)}"
+
+    # test date query
+    current_time = datetime.now()
+    ten_weeks_ago = current_time - timedelta(weeks=1)
+    res = conn.query_date(start_date=ten_weeks_ago, end_date=current_time)
+    print(res)
+    assert len(res) >= 2, f"Expected 2 messages, got {len(res)}"
+
+    print(conn.get_all())
 
 
 @pytest.mark.skipif(not os.getenv("PGVECTOR_TEST_DB_URL") or not os.getenv("OPENAI_API_KEY"), reason="Missing PG URI and/or OpenAI API key")

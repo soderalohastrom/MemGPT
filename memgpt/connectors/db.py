@@ -79,7 +79,22 @@ def get_db_model(table_name: str, table_type: TableType):
             created_at = Column(DateTime(timezone=True), server_default=func.now())
 
             def __repr__(self):
-                return f"<Message(message_id='{self.id}', text='{self.content}', embedding='{self.embedding})>"
+                return f"<Message(message_id='{self.id}', text='{self.text}', embedding='{self.embedding})>"
+
+            def to_record(self):
+                return Message(
+                    user_id=self.user_id,
+                    agent_id=self.agent_id,
+                    role=self.role,
+                    text=self.text,
+                    model=self.model,
+                    function_name=self.function_name,
+                    function_args=self.function_args,
+                    function_response=self.function_response,
+                    embedding=self.embedding,
+                    created_at=self.created_at,
+                    id=self.id,
+                )
 
         """Create database model for table_name"""
         class_name = f"{table_name.capitalize()}Model"
@@ -138,16 +153,16 @@ class PostgresStorageConnector(StorageConnector):
     def get_all(self, limit=10, filters: Optional[Dict] = {}) -> List[Record]:
         session = self.Session()
         filters = self.get_filters(filters)
-        db_passages = session.query(self.db_model).filter(*filters).limit(limit).all()
-        return [self.type(**p.to_dict()) for p in db_passages]
+        db_records = session.query(self.db_model).filter(*filters).limit(limit).all()
+        return [record.to_record() for record in db_records]
 
-    def get(self, id: str, filters: Optional[Dict] = {}) -> Optional[Passage]:
+    def get(self, id: str, filters: Optional[Dict] = {}) -> Optional[Record]:
         session = self.Session()
         filters = self.get_filters(filters)
-        db_passage = session.query(self.db_model).filter(*filters).get(id)
-        if db_passage is None:
+        db_record = session.query(self.db_model).filter(*filters).get(id)
+        if db_record is None:
             return None
-        return Passage(text=db_passage.text, embedding=db_passage.embedding, doc_id=db_passage.doc_id, passage_id=db_passage.passage_id)
+        return db_record.to_record()
 
     def size(self, filters: Optional[Dict] = {}) -> int:
         # return size of table
@@ -178,7 +193,7 @@ class PostgresStorageConnector(StorageConnector):
         ).all()
 
         # Convert the results into Passage objects
-        records = [self.type(**vars(result)) for result in results]
+        records = [result.to_record() for result in results]
         return records
 
     def save(self):
@@ -211,14 +226,16 @@ class PostgresStorageConnector(StorageConnector):
             .filter(self.db_model.created_at <= end_date)
             .all()
         )
-        return [self.type(**vars(result)) for result in results]
+        return [result.to_record() for result in results]
 
     def query_text(self, query):
         # todo: make fuzz https://stackoverflow.com/questions/42388956/create-a-full-text-search-index-with-sqlalchemy-on-postgresql/42390204#42390204
         session = self.Session()
         filters = self.get_filters({})
         results = session.query(self.db_model).filter(*filters).filter(self.db_model.text.contains(query)).all()
-        return [self.type(**vars(result)) for result in results]
+        print(results)
+        # return [self.type(**vars(result)) for result in results]
+        return [result.to_record() for result in results]
 
 
 class LanceDBConnector(StorageConnector):
