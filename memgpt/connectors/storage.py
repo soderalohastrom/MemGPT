@@ -107,8 +107,11 @@ class StorageConnector:
         elif storage_type == "postgres":
             from memgpt.connectors.db import PostgresStorageConnector
 
-            return PostgresStorageConnector(agent_config=agent_config)
+            return PostgresStorageConnector(name=name, agent_config=agent_config)
+        elif storage_type == "chroma":
+            from memgpt.connectors.chroma import ChromaStorageConnector
 
+            return ChromaStorageConnector(name=name, agent_config=agent_config)
         elif storage_type == "lancedb":
             from memgpt.connectors.db import LanceDBConnector
 
@@ -147,7 +150,10 @@ class StorageConnector:
             from memgpt.connectors.db import PostgresStorageConnector
 
             return PostgresStorageConnector.list_loaded_data()
+        elif storage_type == "chroma":
+            from memgpt.connectors.chroma import ChromaStorageConnector
 
+            return ChromaStorageConnector.list_loaded_data()
         elif storage_type == "lancedb":
             from memgpt.connectors.db import LanceDBConnector
 
