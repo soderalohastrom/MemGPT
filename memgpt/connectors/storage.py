@@ -6,7 +6,7 @@ from typing import Any, Optional, List, Iterator
 import re
 import pickle
 import os
-
+from abc import abstractmethod
 
 from typing import List, Optional, Dict
 from tqdm import tqdm
@@ -14,6 +14,7 @@ from tqdm import tqdm
 
 from memgpt.config import AgentConfig, MemGPTConfig
 from memgpt.data_types import Record, Passage, Document, Message
+from memgpt.utils import printd
 
 
 # ENUM representing table types in MemGPT
@@ -65,9 +66,10 @@ class StorageConnector:
         # get all filters for query
         if filters is not None:
             filter_conditions = {**self.filters, **filters}
-            return self.filters + [self.db_model[key] == value for key, value in filter_conditions.items()]
         else:
-            return self.filters
+            filter_conditions = self.filters
+        print("FILTERS", filter_conditions)
+        return [getattr(self.db_model, key) == value for key, value in filter_conditions.items()]
 
     def generate_table_name(self, agent_config: AgentConfig, table_type: TableType):
 
@@ -123,6 +125,8 @@ class StorageConnector:
     @staticmethod
     def get_recall_storage_connector(agent_config: Optional[AgentConfig] = None):
         storage_type = MemGPTConfig.load().recall_storage_type
+
+        print("Recall storage type", storage_type)
 
         if storage_type == "local":
             from memgpt.connectors.local import InMemoryStorageConnector

@@ -283,7 +283,10 @@ class DummyRecallMemory(RecallMemory):
             return matches, len(matches)
 
 
-class RecallMemorySQL(RecallMemory):
+class BaseRecallMemory(RecallMemory):
+
+    """Recall memory based on base functions implemented by storage connectors"""
+
     def __init__(self, agent_config, restrict_search_to_summaries=False):
 
         # If true, the pool of messages that can be queried are the automated summaries only
@@ -305,18 +308,34 @@ class RecallMemorySQL(RecallMemory):
 
     @abstractmethod
     def text_search(self, query_string, count=None, start=None):
-        pass
+        self.storage.query_text(query_string, count, start)
 
     @abstractmethod
-    def date_search(self, query_string, count=None, start=None):
-        pass
+    def date_search(self, start_date, end_date, count=None, start=None):
+        self.storage.query_date(start_date, end_date, count, start)
 
     @abstractmethod
     def __repr__(self) -> str:
-        pass
+        total = self.storage.size()
+        system_count = self.storage.size(filter={"role": "system"})
+        user_count = self.storage.size(filter={"role": "user"})
+        assistant_count = self.storage.size(filter={"role": "assistant"})
+        function_count = self.storage.size(filter={"role": "function"})
+        other_count = total - (system_count + user_count + assistant_count + function_count)
+
+        memory_str = (
+            f"Statistics:"
+            + f"\n{total} total messages"
+            + f"\n{system_count} system"
+            + f"\n{user_count} user"
+            + f"\n{assistant_count} assistant"
+            + f"\n{function_count} function"
+            + f"\n{other_count} other"
+        )
+        return f"\n### RECALL MEMORY ###" + f"\n{memory_str}"
 
     def insert(self, message: Message):
-        pass
+        self.storage.insert(message)
 
 
 class EmbeddingArchivalMemory(ArchivalMemory):

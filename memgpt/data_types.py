@@ -20,11 +20,10 @@ class Record:
         self.text = text
         self.id = id
         # todo: generate unique uuid
-        # todo: timestamp
         # todo: self.role = role (?)
 
-    def __repr__(self):
-        pass
+    # def __repr__(self):
+    #    pass
 
 
 class Message(Record):
@@ -35,17 +34,19 @@ class Message(Record):
         user_id: str,
         agent_id: str,
         role: str,
-        content: str,
+        text: str,
         model: str,  # model used to make function call
+        created_at: Optional[str] = None,
         function_name: Optional[str] = None,  # name of function called
         function_args: Optional[str] = None,  # args of function called
         function_response: Optional[str] = None,  # response of function called
         embedding: Optional[np.ndarray] = None,
         id: Optional[str] = None,
     ):
-        super().__init__(user_id, agent_id, content, id)
+        super().__init__(user_id, agent_id, text, id)
         self.role = role  # role (agent/user/function)
         self.model = model  # model name (e.g. gpt-4)
+        self.created_at = created_at
 
         # function call info (optional)
         self.function_name = function_name
@@ -55,8 +56,8 @@ class Message(Record):
         # embedding (optional)
         self.embedding = embedding
 
-    def __repr__(self):
-        pass
+    # def __repr__(self):
+    #    pass
 
 
 class Document(Record):

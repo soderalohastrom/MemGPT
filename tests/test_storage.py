@@ -3,11 +3,11 @@ import subprocess
 import sys
 import pytest
 
-subprocess.check_call(
-    [sys.executable, "-m", "pip", "install", "pgvector", "psycopg", "psycopg2-binary"]
-)  # , "psycopg_binary"])  # "psycopg", "libpq-dev"])
-
-subprocess.check_call([sys.executable, "-m", "pip", "install", "lancedb"])
+# subprocess.check_call(
+#    [sys.executable, "-m", "pip", "install", "pgvector", "psycopg", "psycopg2-binary"]
+# )  # , "psycopg_binary"])  # "psycopg", "libpq-dev"])
+#
+# subprocess.check_call([sys.executable, "-m", "pip", "install", "lancedb"])
 import pgvector  # Try to import again after installing
 
 from memgpt.connectors.storage import StorageConnector, Passage
@@ -18,34 +18,52 @@ from memgpt.data_types import Message, Passage
 from memgpt.config import MemGPTConfig, AgentConfig
 
 import argparse
+from datetime import datetime
 
 
-def test_recall_db() -> None:
+def test_recall_db():
     # os.environ["MEMGPT_CONFIG_PATH"] = "./config"
 
     storage_type = "postgres"
     storage_uri = os.getenv("PGVECTOR_TEST_DB_URL")
-    config = MemGPTConfig(recall_storage_type=storage_type, recall_storage_uri=storage_uri)
+    config = MemGPTConfig(
+        recall_storage_type=storage_type,
+        recall_storage_uri=storage_uri,
+        model_endpoint_type="openai",
+        model_endpoint="https://api.openai.com/v1",
+        model="gpt4",
+    )
     print(config.config_path)
     assert config.recall_storage_uri is not None
     config.save()
     print(config)
 
-    conn = StorageConnector.get_recall_storage_connector()
+    agent_config = AgentConfig(
+        persona=config.persona,
+        human=config.human,
+        model=config.model,
+    )
+
+    conn = StorageConnector.get_recall_storage_connector(agent_config)
 
     # construct recall memory messages
     message1 = Message(
         agent_id="test_agent1",
         role="agent",
-        content="This is a test message",
-        id="test_id1",
+        text="This is a test message",
+        user_id=config.anon_clientid,
+        model=agent_config.model,
+        created_at=datetime.now(),
     )
     message2 = Message(
         agent_id="test_agent2",
         role="user",
-        content="This is a test message",
-        id="test_id2",
+        text="This is a test message",
+        user_id=config.anon_clientid,
+        model=agent_config.model,
+        created_at=datetime.now(),
     )
+    print(vars(message1))
 
     # test insert
     conn.insert(message1)
@@ -246,3 +264,6 @@ def test_lancedb_local():
 
     assert len(res) == 2, f"Expected 2 results, got {len(res)}"
     assert "wept" in res[0].text, f"Expected 'wept' in results, but got {res[0].text}"
+
+
+test_recall_db()

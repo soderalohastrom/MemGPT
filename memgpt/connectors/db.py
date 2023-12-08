@@ -1,5 +1,5 @@
 from pgvector.psycopg import register_vector
-from pgvector.sqlalchemy import Vector, JSON, Text
+from pgvector.sqlalchemy import Vector
 import psycopg
 
 
@@ -8,6 +8,8 @@ from sqlalchemy.orm import sessionmaker, mapped_column
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from sqlalchemy import Column, BIGINT, String, DateTime
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy_json import mutable_json_type
 
 import re
 from tqdm import tqdm
@@ -28,11 +30,6 @@ from datetime import datetime
 Base = declarative_base()
 
 
-def parse_formatted_time(formatted_time):
-    # parse times returned by memgpt.utils.get_formatted_time()
-    return datetime.strptime(formatted_time, "%Y-%m-%d %I:%M:%S %p %Z%z")
-
-
 def get_db_model(table_name: str, table_type: TableType):
     config = MemGPTConfig.load()
 
@@ -50,7 +47,7 @@ def get_db_model(table_name: str, table_type: TableType):
             data_source = Column(String)  # agent_name if agent, data_source name if from data source
             text = Column(String, nullable=False)
             embedding = mapped_column(Vector(config.embedding_dim))
-            metadata_ = Column(JSON(astext_type=Text()))
+            metadata_ = Column(mutable_json_type(dbtype=JSONB, nested=True))
 
             def __repr__(self):
                 return f"<Passage(passage_id='{self.id}', text='{self.text}', embedding='{self.embedding})>"
@@ -71,7 +68,7 @@ def get_db_model(table_name: str, table_type: TableType):
             user_id = Column(String, nullable=False)
             agent_id = Column(String, nullable=False)
             role = Column(String, nullable=False)
-            content = Column(String, nullable=False)
+            text = Column(String, nullable=False)
             model = Column(String, nullable=False)
             function_name = Column(String)
             function_args = Column(String)
@@ -82,7 +79,7 @@ def get_db_model(table_name: str, table_type: TableType):
             created_at = Column(DateTime(timezone=True), server_default=func.now())
 
             def __repr__(self):
-                return f"<Message(message_id='{self.id}', content='{self.content}', embedding='{self.embedding})>"
+                return f"<Message(message_id='{self.id}', text='{self.content}', embedding='{self.embedding})>"
 
         """Create database model for table_name"""
         class_name = f"{table_name.capitalize()}Model"
@@ -101,11 +98,20 @@ class PostgresStorageConnector(StorageConnector):
         super().__init__(table_type=table_type, agent_config=agent_config)
         config = MemGPTConfig.load()
 
+        # get storage URI
+        if table_type == TableType.ARCHIVAL_MEMORY:
+            self.uri = config.archival_storage_uri
+            if config.archival_storage_uri is None:
+                raise ValueError(f"Must specifiy archival_storage_uri in config {config.config_path}")
+        elif table_type == TableType.RECALL_MEMORY:
+            self.uri = config.recall_storage_uri
+            if config.recall_storage_uri is None:
+                raise ValueError(f"Must specifiy recall_storage_uri in config {config.config_path}")
+        else:
+            raise ValueError(f"Table type {table_type} not implemented")
+
         # create table
-        self.uri = config.archival_storage_uri
-        if config.archival_storage_uri is None:
-            raise ValueError(f"Must specifiy archival_storage_uri in config {config.config_path}")
-        self.db_model = get_db_model(self.table_name)
+        self.db_model = get_db_model(self.table_name, table_type)
         self.engine = create_engine(self.uri)
         Base.metadata.create_all(self.engine)  # Create the table if it doesn't exist
         self.Session = sessionmaker(bind=self.engine)
@@ -145,27 +151,27 @@ class PostgresStorageConnector(StorageConnector):
 
     def size(self, filters: Optional[Dict] = {}) -> int:
         # return size of table
+        print("size")
         session = self.Session()
         filters = self.get_filters(filters)
         return session.query(self.db_model).filter(*filters).count()
 
-    def insert(self, passage: Passage):
+    def insert(self, record: Record):
         session = self.Session()
-        db_passage = self.db_model(doc_id=passage.doc_id, text=passage.text, embedding=passage.embedding)
-        session.add(db_passage)
+        db_record = self.db_model(**vars(record))
+        session.add(db_record)
         session.commit()
 
     def insert_many(self, records: List[Record], show_progress=True):
         session = self.Session()
         iterable = tqdm(records) if show_progress else records
-        for passage in iterable:
-            db_passage = self.db_model(doc_id=passage.doc_id, text=passage.text, embedding=passage.embedding)
-            session.add(db_passage)
+        for record in iterable:
+            db_record = self.db_model(**vars(record))
+            session.add(db_record)
         session.commit()
 
     def query(self, query: str, query_vec: List[float], top_k: int = 10, filters: Optional[Dict] = {}) -> List[Record]:
         session = self.Session()
-        # Assuming PassageModel.embedding has the capability of computing l2_distance
         filters = self.get_filters(filters)
         results = session.scalars(
             select(self.db_model).filter(*filters).order_by(self.db_model.embedding.l2_distance(query_vec)).limit(top_k)
@@ -194,6 +200,25 @@ class PostgresStorageConnector(StorageConnector):
         start_chars = len("memgpt_")
         tables = [table[start_chars:] for table in tables]
         return tables
+
+    def query_date(self, start_date, end_date):
+        session = self.Session()
+        filters = self.get_filters({})
+        results = (
+            session.query(self.db_model)
+            .filter(*filters)
+            .filter(self.db_model.created_at >= start_date)
+            .filter(self.db_model.created_at <= end_date)
+            .all()
+        )
+        return [self.type(**vars(result)) for result in results]
+
+    def query_text(self, query):
+        # todo: make fuzz https://stackoverflow.com/questions/42388956/create-a-full-text-search-index-with-sqlalchemy-on-postgresql/42390204#42390204
+        session = self.Session()
+        filters = self.get_filters({})
+        results = session.query(self.db_model).filter(*filters).filter(self.db_model.text.contains(query)).all()
+        return [self.type(**vars(result)) for result in results]
 
 
 class LanceDBConnector(StorageConnector):
