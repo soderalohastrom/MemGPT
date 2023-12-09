@@ -29,9 +29,9 @@ class TableType:
 
 
 # table names used by MemGPT
-RECALL_TABLE_NAME = "memgpt_recall_memory"
-ARCHIVAL_TABLE_NAME = "memgpt_archival_memory"
-PASSAGE_TABLE_NAME = "memgpt_passages"
+RECALL_TABLE_NAME = "memgpt_recall_memory_agent"  # agent memory
+ARCHIVAL_TABLE_NAME = "memgpt_archival_memory_agent"  # agent memory
+PASSAGE_TABLE_NAME = "memgpt_passages"  # loads data sources
 DOCUMENT_TABLE_NAME = "memgpt_documents"
 
 
@@ -104,20 +104,20 @@ class StorageConnector:
         if storage_type == "local":
             from memgpt.connectors.local import VectorIndexStorageConnector
 
-            return VectorIndexStorageConnector(agent_config=agent_config)
+            return VectorIndexStorageConnector(agent_config=agent_config, table_type=TableType.ARCHIVAL_MEMORY)
 
         elif storage_type == "postgres":
             from memgpt.connectors.db import PostgresStorageConnector
 
-            return PostgresStorageConnector(name=name, agent_config=agent_config)
+            return PostgresStorageConnector(agent_config=agent_config, table_type=TableType.ARCHIVAL_MEMORY)
         elif storage_type == "chroma":
             from memgpt.connectors.chroma import ChromaStorageConnector
 
-            return ChromaStorageConnector(name=name, agent_config=agent_config)
+            return ChromaStorageConnector(agent_config=agent_config, table_type=TableType.ARCHIVAL_MEMORY)
         elif storage_type == "lancedb":
             from memgpt.connectors.db import LanceDBConnector
 
-            return LanceDBConnector(agent_config=agent_config)
+            return LanceDBConnector(agent_config=agent_config, table_type=TableType.ARCHIVAL_MEMORY)
 
         else:
             raise NotImplementedError(f"Storage type {storage_type} not implemented")

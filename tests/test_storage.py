@@ -10,7 +10,7 @@ import pytest
 # subprocess.check_call([sys.executable, "-m", "pip", "install", "lancedb"])
 import pgvector  # Try to import again after installing
 
-from memgpt.connectors.storage import StorageConnector, Passage
+from memgpt.connectors.storage import StorageConnector, TableType
 from memgpt.connectors.chroma import ChromaStorageConnector
 from memgpt.connectors.db import PostgresStorageConnector, LanceDBConnector
 from memgpt.embeddings import embedding_model
@@ -110,10 +110,28 @@ def test_postgres_openai():
 
     passage = ["This is a test passage", "This is another test passage", "Cinderella wept"]
 
-    db = PostgresStorageConnector(name="test-openai")
+    agent_config = AgentConfig(
+        name="test_agent",
+        persona=config.persona,
+        human=config.human,
+        model=config.model,
+    )
 
+    db = PostgresStorageConnector(agent_config=agent_config, table_type=TableType.ARCHIVAL_MEMORY)
+
+    # db.delete()
+    # return
     for passage in passage:
-        db.insert(Passage(text=passage, embedding=embed_model.get_text_embedding(passage)))
+        db.insert(
+            Passage(
+                text=passage,
+                embedding=embed_model.get_text_embedding(passage),
+                user_id=config.anon_clientid,
+                agent_id="test_agent",
+                data_source="test",
+                metadata={"test_metadata_key": "test_metadata_value"},
+            )
+        )
 
     print(db.get_all())
 
@@ -273,6 +291,3 @@ def test_lancedb_local():
 
     assert len(res) == 2, f"Expected 2 results, got {len(res)}"
     assert "wept" in res[0].text, f"Expected 'wept' in results, but got {res[0].text}"
-
-
-test_recall_db()

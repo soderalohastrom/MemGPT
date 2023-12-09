@@ -63,7 +63,7 @@ class LocalStateManager(PersistenceManager):
         manager = cls(agent_config)
         return manager
 
-    def save(self, filename):
+    def save(self):
         """Ensure storage connectors save data"""
         self.archival_memory.save()
         self.recall_memory.save()
@@ -74,7 +74,7 @@ class LocalStateManager(PersistenceManager):
         # self.all_messages = [{"timestamp": get_local_time(), "message": msg} for msg in agent.messages.copy()]
         self.messages = [{"timestamp": get_local_time(), "message": msg} for msg in agent.messages.copy()]
         self.memory = agent.memory
-        printd(f"{self.__class__.__name__}.all_messages.len = {len(self.all_messages)}")
+        # printd(f"{self.__class__.__name__}.all_messages.len = {len(self.all_messages)}")
         printd(f"{self.__class__.__name__}.messages.len = {len(self.messages)}")
 
         # Persistence manager also handles DB-related state
@@ -86,7 +86,7 @@ class LocalStateManager(PersistenceManager):
         message = message_json["message"]
 
         return Message(
-            user_id=self.config.user_id,
+            user_id=self.config.anon_clientid,
             agent_id=self.agent_config.name,
             role=message["role"],
             text=message["content"],

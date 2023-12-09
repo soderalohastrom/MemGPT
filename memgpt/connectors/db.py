@@ -33,7 +33,7 @@ Base = declarative_base()
 def get_db_model(table_name: str, table_type: TableType):
     config = MemGPTConfig.load()
 
-    if table_name == TableType.ARCHIVAL_MEMORY:
+    if table_type == TableType.ARCHIVAL_MEMORY or table_type == TableType.PASSAGES:
         # create schema for archival memory
         class PassageModel(Base):
             """Defines data model for storing Passages (consisting of text, embedding)"""
@@ -42,15 +42,28 @@ def get_db_model(table_name: str, table_type: TableType):
 
             # Assuming passage_id is the primary key
             id = Column(BIGINT, primary_key=True, nullable=False, autoincrement=True)
+            user_id = Column(String, nullable=False)
+            text = Column(String, nullable=False)
             doc_id = Column(String)
             agent_id = Column(String)
             data_source = Column(String)  # agent_name if agent, data_source name if from data source
-            text = Column(String, nullable=False)
             embedding = mapped_column(Vector(config.embedding_dim))
             metadata_ = Column(mutable_json_type(dbtype=JSONB, nested=True))
 
             def __repr__(self):
                 return f"<Passage(passage_id='{self.id}', text='{self.text}', embedding='{self.embedding})>"
+
+            def to_record(self):
+                return Passage(
+                    text=self.text,
+                    embedding=self.embedding,
+                    doc_id=self.doc_id,
+                    user_id=self.user_id,
+                    id=self.id,
+                    data_source=self.data_source,
+                    agent_id=self.agent_id,
+                    metadata=self.metadata_,
+                )
 
         """Create database model for table_name"""
         class_name = f"{table_name.capitalize()}Model"
@@ -173,6 +186,7 @@ class PostgresStorageConnector(StorageConnector):
 
     def insert(self, record: Record):
         session = self.Session()
+        print(vars(record))
         db_record = self.db_model(**vars(record))
         session.add(db_record)
         session.commit()
@@ -236,6 +250,12 @@ class PostgresStorageConnector(StorageConnector):
         print(results)
         # return [self.type(**vars(result)) for result in results]
         return [result.to_record() for result in results]
+
+    def delete(self):
+        session = self.Session()
+        session.query(self.db_model).delete()
+        session.commit()
+        print("deleted", self.db_model)
 
 
 class LanceDBConnector(StorageConnector):
