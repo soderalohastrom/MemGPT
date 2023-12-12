@@ -84,26 +84,12 @@ class ChromaStorageConnector(StorageConnector):
         results = self.collection.get(ids=[id])
         return self.results_to_records(results)
 
-    def insert(self, record: Record):
-        if record.id is None:
-            record.id = str(self.collection.count())
-        metadata = vars(record)
-        metadata.pop("id")
-        metadata.pop("text")
-        metadata.pop("embedding")
-        self.collection.add(documents=[record.text], embeddings=[record.embedding], ids=[record.id], metadatas=[metadata])
-
-    def insert_many(self, records: List[Record], show_progress=True):
-        count = self.collection.count()
+    def format_records(self, records: List[Record]):
         metadatas = []
-        ids = []
+        ids = [str(record.id) for record in records]
         documents = [record.text for record in records]
         embeddings = [record.embedding for record in records]
         for record in records:
-            if record.id is None:
-                count += 1
-                ids.append(str(count))
-                # TODO: ensure that other record.ids dont match
             metadata = vars(record)
             metadata.pop("id")
             metadata.pop("text")
@@ -112,6 +98,17 @@ class ChromaStorageConnector(StorageConnector):
                 metadata["created_at"] = datetime_to_timestamp(metadata["created_at"])
             metadata = {key: value for key, value in metadata.items() if value is not None}  # null values not allowed
             metadatas.append(metadata)
+        return ids, documents, embeddings, metadatas
+
+    def insert(self, record: Record):
+        ids, documents, embeddings, metadatas = self.format_records([record])
+        if not any(embeddings):
+            self.collection.add(documents=documents, ids=ids, metadatas=metadatas)
+        else:
+            self.collection.add(documents=documents, embeddings=embeddings, ids=ids, metadatas=metadatas)
+
+    def insert_many(self, records: List[Record], show_progress=True):
+        ids, documents, embeddings, metadatas = self.format_records(records)
         if not any(embeddings):
             self.collection.add(documents=documents, ids=ids, metadatas=metadatas)
         else:

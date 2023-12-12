@@ -25,7 +25,7 @@ from datetime import datetime, timedelta
 
 
 texts = ["This is a test passage", "This is another test passage", "Cinderella wept"]
-start_date = datetime.datetime(2009, 10, 5, 18, 00)
+start_date = datetime(2009, 10, 5, 18, 00)
 dates = [start_date - timedelta(weeks=1), start_date, start_date + timedelta(weeks=1)]
 roles = ["user", "agent", "user"]
 agent_ids = ["agent1", "agent2", "agent1"]
@@ -56,16 +56,8 @@ def generate_messages():
     """Generate list of 3 Message objects"""
     messages = []
     for (text, date, role, agent_id, id) in zip(texts, dates, roles, agent_ids, ids):
-        messages.append(
-            Message(
-                user_id="test",
-                text=text,
-                agent_id=agent_id,
-                role=role,
-                created_at=date,
-                id=id,
-            )
-        )
+        messages.append(Message(user_id="test", text=text, agent_id=agent_id, role=role, created_at=date, id=id, model="gpt4"))
+        print(messages[-1].text)
     return messages
 
 
@@ -73,10 +65,43 @@ def generate_messages():
 @pytest.mark.parametrize("table_type", [TableType.ARCHIVAL_MEMORY, TableType.RECALL_MEMORY])
 def test_storage(storage_connector, table_type):
 
+    # setup memgpt config
+    # TODO: set env for different config path
+    config = MemGPTConfig()
     if storage_connector == "postgres":
         if not os.getenv("PGVECTOR_TEST_DB_URL"):
             print("Skipping test, missing PG URI")
             return
+        config.archival_storage_uri = os.getenv("PGVECTOR_TEST_DB_URL")
+        config.recall_storage_uri = os.getenv("PGVECTOR_TEST_DB_URL")
+        config.archival_storage_type = "postgres"
+        config.recall_storage_type = "postgres"
+    if storage_connector == "lancedb":
+        if not os.getenv("LANCEDB_TEST_URL"):
+            print("Skipping test, missing LanceDB URI")
+            return
+        config.archival_storage_uri = os.getenv("LANCEDB_TEST_URL")
+        config.recall_storage_uri = os.getenv("LANCEDB_TEST_URL")
+        config.archival_storage_type = "lancedb"
+        config.recall_storage_type = "lancedb"
+    if storage_connector == "chroma":
+        config.archival_storage_type = "chroma"
+        config.recall_storage_type = "chroma"
+        config.recall_storage_path = "./test_chroma"
+        config.archival_storage_path = "./test_chroma"
+
+    # get embedding model
+    embed_model = None
+    if os.getenv("OPENAI_API_KEY"):
+        config.embedding_endpoint_type = "openai"
+        config.embedding_endpoint = "https://api.openai.com/v1"
+        config.embedding_dim = 1536
+        config.openai_key = os.getenv("OPENAI_API_KEY")
+    else:
+        config.embedding_endpoint_type = "local"
+        config.embedding_endpoint = None
+        config.embedding_dim = 384
+    config.save()
 
     # create agent
     agent_config = AgentConfig(
@@ -86,14 +111,7 @@ def test_storage(storage_connector, table_type):
     )
 
     # create storage connector
-    conn = StorageConnector.get_storage_connector(storage_connector, table_type=table_type, agent_config=agent_config)
-
-    # get embedding model
-    embed_model = None
-    if os.getenv("OPENAI_API_KEY"):
-        from llama_index.embeddings import OpenAIEmbedding
-
-        embed_model = OpenAIEmbedding()
+    conn = StorageConnector.get_storage_connector(storage_type=storage_connector, table_type=table_type, agent_config=agent_config)
 
     # generate data
     if table_type == TableType.ARCHIVAL_MEMORY:
