@@ -29,21 +29,37 @@ class ChromaStorageConnector(StorageConnector):
 
         # get a collection or create if it doesn't exist already
         self.collection = self.client.get_or_create_collection(self.table_name)
-        self.include = ["id", "documents", "embeddings", "metadatas"]
+        self.include = ["documents", "embeddings", "metadatas"]
+
+    def get_filters(self, filters: Optional[Dict] = {}):
+        # get all filters for query
+        if filters is not None:
+            filter_conditions = {**self.filters, **filters}
+        else:
+            filter_conditions = self.filters
+
+        # convert to chroma format
+        chroma_filters = {"$and": []}
+        for key, value in filter_conditions.items():
+            chroma_filters["$and"].append({key: {"$eq": value}})
+        return chroma_filters
 
     def get_all_paginated(self, page_size: int, filters: Optional[Dict]) -> Iterator[List[Record]]:
         offset = 0
         filters = self.get_filters(filters)
+        print(filters)
         while True:
             # Retrieve a chunk of records with the given page_size
-            db_chunks = self.collection.get(offset=offset, limit=page_size, include=self.include, where=filters)
+            print("querying...", self.collection.count(), offset, page_size)
+            results = self.collection.get(offset=offset, limit=page_size, include=self.include, where=filters)
+            print(len(results["embeddings"]))
 
             # If the chunk is empty, we've retrieved all records
-            if not db_chunks:
+            if len(results["embeddings"]) == 0:
                 break
 
             # Yield a list of Record objects converted from the chunk
-            yield self.results_to_records(db_chunks)
+            yield self.results_to_records(results)
 
             # Increment the offset to get the next chunk in the next iteration
             offset += page_size
@@ -54,8 +70,8 @@ class ChromaStorageConnector(StorageConnector):
             if "created_at" in metadata:
                 metadata["created_at"] = timestamp_to_datetime(metadata["created_at"])
         return [
-            self.type(id=id, text=text, embedding=embedding, **metadatas)
-            for (id, text, embedding, metadatas) in zip(results["ids"], results["documents"], results["embeddings"], results["metadatas"])
+            self.type(text=text, embedding=embedding, **metadatas)
+            for (text, embedding, metadatas) in zip(results["documents"], results["embeddings"], results["metadatas"])
         ]
 
     def get_all(self, limit=10, filters: Optional[Dict] = {}) -> List[Record]:
@@ -110,8 +126,11 @@ class ChromaStorageConnector(StorageConnector):
         pass
 
     def size(self, filters: Optional[Dict] = {}) -> int:
-        filters = self.get_filters(filters)
-        return self.collection.count()
+        # unfortuantely, need to use pagination to get filtering
+        count = 0
+        for records in self.get_all_paginated(page_size=100, filters=filters):
+            count += len(records)
+        return count
 
     def list_data_sources(self):
         raise NotImplementedError
@@ -123,6 +142,7 @@ class ChromaStorageConnector(StorageConnector):
 
     def query_date(self, start_date, end_date, start=None, count=None):
         # TODO: no idea if this is correct
+        # TODO: convert start/end_date into timestamp
         filters = self.get_filters(filters)
         filters["created_at"] = {
             "$gte": start_date,
