@@ -9,7 +9,7 @@ from memgpt.config import AgentConfig, MemGPTConfig
 from memgpt.system import get_login_event, package_function_response, package_summarize_message, get_initial_boot_messages
 from memgpt.memory import CoreMemory as InContextMemory, summarize_messages
 from memgpt.openai_tools import create, is_context_overflow_error
-from memgpt.utils import get_local_time, parse_json, united_diff, printd, count_tokens, get_schema_diff
+from memgpt.utils import get_local_time, parse_json, united_diff, printd, count_tokens, get_schema_diff, validate_function_response
 from memgpt.constants import (
     FIRST_MESSAGE_ATTEMPTS,
     MESSAGE_SUMMARY_WARNING_FRAC,
@@ -462,7 +462,8 @@ class Agent(object):
             self.interface.function_message(f"Running {function_name}({function_args})")
             try:
                 function_args["self"] = self  # need to attach self to arg since it's dynamically linked
-                function_response_string = function_to_call(**function_args)
+                function_response = function_to_call(**function_args)
+                function_response_string = validate_function_response(function_response)
                 function_args.pop("self", None)
                 function_response = package_function_response(True, function_response_string)
                 function_failed = False
@@ -512,6 +513,17 @@ class Agent(object):
             if user_message is not None:
                 self.interface.user_message(user_message)
                 packed_user_message = {"role": "user", "content": user_message}
+                # Special handling for AutoGen messages with 'name' field
+                try:
+                    user_message_json = json.loads(user_message)
+                    # Treat 'name' as a special field
+                    # If it exists in the input message, elevate it to the 'message' level
+                    if "name" in user_message_json:
+                        packed_user_message["name"] = user_message_json["name"]
+                        user_message_json.pop("name", None)
+                        packed_user_message["content"] = json.dumps(user_message_json)
+                except Exception as e:
+                    print(f"{CLI_WARNING_PREFIX}handling of 'name' field failed with: {e}")
                 input_message_sequence = self.messages + [packed_user_message]
             else:
                 input_message_sequence = self.messages
@@ -656,7 +668,13 @@ class Agent(object):
             pass
 
         message_sequence_to_summarize = self.messages[1:cutoff]  # do NOT get rid of the system message
-        printd(f"Attempting to summarize {len(message_sequence_to_summarize)} messages [1:{cutoff}] of {len(self.messages)}")
+        if len(message_sequence_to_summarize) == 1:
+            # This prevents a potential infinite loop of summarizing the same message over and over
+            raise LLMError(
+                f"Summarize error: tried to run summarize, but couldn't find enough messages to compress [len={len(message_sequence_to_summarize)} <= 1]"
+            )
+        else:
+            printd(f"Attempting to summarize {len(message_sequence_to_summarize)} messages [1:{cutoff}] of {len(self.messages)}")
 
         # We can't do summarize logic properly if context_window is undefined
         if self.config.context_window is None:
