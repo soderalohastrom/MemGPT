@@ -33,6 +33,7 @@ class ChromaStorageConnector(StorageConnector):
 
     def get_filters(self, filters: Optional[Dict] = {}):
         # get all filters for query
+        print("GET FILTER", filters)
         if filters is not None:
             filter_conditions = {**self.filters, **filters}
         else:
@@ -44,13 +45,13 @@ class ChromaStorageConnector(StorageConnector):
             chroma_filters["$and"].append({key: {"$eq": value}})
         return chroma_filters
 
-    def get_all_paginated(self, page_size: int, filters: Optional[Dict]) -> Iterator[List[Record]]:
+    def get_all_paginated(self, page_size: int, filters: Optional[Dict] = {}) -> Iterator[List[Record]]:
         offset = 0
         filters = self.get_filters(filters)
-        print(filters)
+        print("FILTERS", filters)
         while True:
             # Retrieve a chunk of records with the given page_size
-            print("querying...", self.collection.count(), offset, page_size)
+            print("querying...", self.collection.count(), "offset", offset, "page", page_size)
             results = self.collection.get(offset=offset, limit=page_size, include=self.include, where=filters)
             print(len(results["embeddings"]))
 
@@ -69,26 +70,37 @@ class ChromaStorageConnector(StorageConnector):
         for metadata in results["metadatas"]:
             if "created_at" in metadata:
                 metadata["created_at"] = timestamp_to_datetime(metadata["created_at"])
-        return [
-            self.type(text=text, embedding=embedding, **metadatas)
-            for (text, embedding, metadatas) in zip(results["documents"], results["embeddings"], results["metadatas"])
-        ]
+        if results["embeddings"]:  # may not be returned, depending on table type
+            return [
+                self.type(text=text, embedding=embedding, id=id, **metadatas)
+                for (text, embedding, id, metadatas) in zip(
+                    results["documents"], results["ids"], results["embeddings"], results["metadatas"]
+                )
+            ]
+        else:
+            # no embeddings
+            return [
+                self.type(text=text, id=id, **metadatas)
+                for (text, id, metadatas) in zip(results["documents"], results["ids"], results["metadatas"])
+            ]
 
     def get_all(self, limit=10, filters: Optional[Dict] = {}) -> List[Record]:
         filters = self.get_filters(filters)
-        results = self.collection.get(include=self.include, where=filters)
+        results = self.collection.get(include=self.include, where=filters, limit=limit)
         return self.results_to_records(results)
 
     def get(self, id: str, filters: Optional[Dict] = {}) -> Optional[Record]:
         filters = self.get_filters(filters)
         results = self.collection.get(ids=[id])
-        return self.results_to_records(results)
+        return self.results_to_records(results)[0]
 
     def format_records(self, records: List[Record]):
         metadatas = []
         ids = [str(record.id) for record in records]
         documents = [record.text for record in records]
         embeddings = [record.embedding for record in records]
+
+        # collect/format record metadata
         for record in records:
             metadata = vars(record)
             metadata.pop("id")
@@ -96,12 +108,20 @@ class ChromaStorageConnector(StorageConnector):
             metadata.pop("embedding")
             if "created_at" in metadata:
                 metadata["created_at"] = datetime_to_timestamp(metadata["created_at"])
+            if "metadata" in metadata:
+                record_metadata = dict(metadata["metadata"])
+                metadata.pop("metadata")
+            else:
+                record_metadata = {}
             metadata = {key: value for key, value in metadata.items() if value is not None}  # null values not allowed
+            metadata = {**metadata, **record_metadata}  # merge with metadata
+            print("m", metadata)
             metadatas.append(metadata)
         return ids, documents, embeddings, metadatas
 
     def insert(self, record: Record):
         ids, documents, embeddings, metadatas = self.format_records([record])
+        print("metadata", record, metadatas)
         if not any(embeddings):
             self.collection.add(documents=documents, ids=ids, metadatas=metadatas)
         else:
@@ -158,3 +178,13 @@ class ChromaStorageConnector(StorageConnector):
         count = len(results) if count is None else count
         results = results[start : start + count]
         return self.results_to_records(results)
+
+    @staticmethod
+    def list_loaded_data(user_id: Optional[str] = None):
+        if user_id is None:
+            config = MemGPTConfig.load()
+            user_id = config.anon_clientid
+
+        # get all collections
+        # TODO: implement this
+        pass
