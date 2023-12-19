@@ -92,6 +92,8 @@ class ChromaStorageConnector(StorageConnector):
     def get(self, id: str, filters: Optional[Dict] = {}) -> Optional[Record]:
         filters = self.get_filters(filters)
         results = self.collection.get(ids=[id])
+        if len(results["ids"]) == 0:
+            return None
         return self.results_to_records(results)[0]
 
     def format_records(self, records: List[Record]):
@@ -134,8 +136,9 @@ class ChromaStorageConnector(StorageConnector):
         else:
             self.collection.add(documents=documents, embeddings=embeddings, ids=ids, metadatas=metadatas)
 
-    def delete(self):
-        self.client.delete_collection(name=self.table_name)
+    def delete(self, filters: Optional[Dict] = {}):
+        filters = self.get_filters(filters)
+        self.collection.delete(where=filters)
 
     def save(self):
         # save to persistence file (nothing needs to be done)
@@ -158,26 +161,26 @@ class ChromaStorageConnector(StorageConnector):
         return self.results_to_records(results)
 
     def query_date(self, start_date, end_date, start=None, count=None):
-        # TODO: no idea if this is correct
-        # TODO: convert start/end_date into timestamp
-        filters = self.get_filters(filters)
-        filters["created_at"] = {
-            "$gte": start_date,
-            "$lte": end_date,
-        }
-        results = self.collection.query(where=filters)
-        start = 0 if start is None else start
-        count = len(results) if count is None else count
-        results = results[start : start + count]
-        return self.results_to_records(results)
+        raise ValueError("Cannot run query_date with chroma")
+        # filters = self.get_filters(filters)
+        # filters["created_at"] = {
+        #    "$gte": start_date,
+        #    "$lte": end_date,
+        # }
+        # results = self.collection.query(where=filters)
+        # start = 0 if start is None else start
+        # count = len(results) if count is None else count
+        # results = results[start : start + count]
+        # return self.results_to_records(results)
 
     def query_text(self, query, count=None, start=None, filters: Optional[Dict] = {}):
-        filters = self.get_filters(filters)
-        results = self.collection.query(where_document={"$contains": {"text": query}}, where=filters)
-        start = 0 if start is None else start
-        count = len(results) if count is None else count
-        results = results[start : start + count]
-        return self.results_to_records(results)
+        raise ValueError("Cannot run query_text with chroma")
+        # filters = self.get_filters(filters)
+        # results = self.collection.query(where_document={"$contains": {"text": query}}, where=filters)
+        # start = 0 if start is None else start
+        # count = len(results) if count is None else count
+        # results = results[start : start + count]
+        # return self.results_to_records(results)
 
     @staticmethod
     def list_loaded_data(user_id: Optional[str] = None):

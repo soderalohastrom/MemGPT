@@ -47,6 +47,7 @@ def generate_passages(embed_model):
                 agent_id=agent_id,
                 embedding=embedding,
                 data_source="test_source",
+                id=id,
             )
         )
     return passages
@@ -113,7 +114,7 @@ def test_storage(storage_connector, table_type):
 
     # create storage connector
     conn = StorageConnector.get_storage_connector(storage_type=storage_connector, table_type=table_type, agent_config=agent_config)
-    conn.delete()  # clear out data
+    conn.client.delete_collection(conn.collection.name)  # clear out data
     conn = StorageConnector.get_storage_connector(storage_type=storage_connector, table_type=table_type, agent_config=agent_config)
 
     # override filters
@@ -175,19 +176,21 @@ def test_storage(storage_connector, table_type):
         assert len(res) == 2, f"Expected 2 results, got {len(res)}"
         assert "wept" in res[0].text, f"Expected 'wept' in results, but got {res[0].text}"
 
-    # test: query_text
-    query = "CindereLLa"
-    res = conn.query_text(query)
-    assert len(res) == 1, f"Expected 1 result, got {len(res)}"
-    assert "Cinderella" in res[0].text, f"Expected 'Cinderella' in results, but got {res[0].text}"
+    # test optional query functions
+    if storage_connector != "chroma":
+        # test: query_text
+        query = "CindereLLa"
+        res = conn.query_text(query)
+        assert len(res) == 1, f"Expected 1 result, got {len(res)}"
+        assert "Cinderella" in res[0].text, f"Expected 'Cinderella' in results, but got {res[0].text}"
 
-    # test: query_date (recall memory only)
-    if table_type == TableType.RECALL_MEMORY:
-        print("Testing recall memory date search")
-        start_date = start_date - timedelta(days=1)
-        end_date = start_date + timedelta(days=1)
-        res = conn.query_date(start_date=start_date, end_date=end_date)
-        assert len(res) == 1, f"Expected 1 result, got {len(res): {res}}"
+        # test: query_date (recall memory only)
+        if table_type == TableType.RECALL_MEMORY:
+            print("Testing recall memory date search")
+            start_date = start_date - timedelta(days=1)
+            end_date = start_date + timedelta(days=1)
+            res = conn.query_date(start_date=start_date, end_date=end_date)
+            assert len(res) == 1, f"Expected 1 result, got {len(res): {res}}"
 
     # test: delete
     conn.delete({"id": ids[0]})
