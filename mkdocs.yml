@@ -8,35 +8,35 @@ site_description: MemGPT documentation
 nav:
   - Home: index.md
   - 'User Guide':
-    - 'Quickstart': quickstart.md
-    - 'Example - perpetual chatbot': example_chat.md
-    - 'Example - chat with your data': example_data.md
-    - 'Configuration': config.md
-    - 'External data sources': data_sources.md
-    - 'Configuring LLMs': endpoints.md
-    - 'Configuring embeddings': embedding_endpoints.md
-    - 'FAQ': cli_faq.md
+    - 'Quickstart': quickstart
+    - 'Example - perpetual chatbot': example_chat
+    - 'Example - chat with your data': example_data
+    - 'Configuration': config
+    - 'External data sources': data_sources
+    - 'Configuring LLMs': endpoints
+    - 'Configuring embeddings': embedding_endpoints
+    - 'FAQ': cli_faq
   - 'Discord Bot':
-    - 'Chatting with MemGPT Bot': discord_bot.md
+    - 'Chatting with MemGPT Bot': discord_bot
   - 'LLM Backends':
-    - 'MemGPT + open models': local_llm.md
-    - 'oobabooga web UI': webui.md
+    - 'MemGPT + open models': local_llm
+    - 'oobabooga web UI': webui
     # - 'oobabooga web UI (on RunPod)': webui_runpod.md
-    - 'LM Studio': lmstudio.md
-    - 'llama.cpp': llamacpp.md
-    - 'KoboldCpp': koboldcpp.md
-    - 'Ollama': ollama.md
-    - 'vLLM': vllm.md
-    - 'Troubleshooting': local_llm_faq.md
+    - 'LM Studio': lmstudio
+    - 'llama.cpp': llamacpp
+    - 'KoboldCpp': koboldcpp
+    - 'Ollama': ollama
+    - 'vLLM': vllm
+    - 'Troubleshooting': local_llm_faq
   - 'Customizing MemGPT':
-    - 'Creating new MemGPT presets': presets.md
-    - 'Giving MemGPT more tools': functions.md
+    - 'Creating new MemGPT presets': presets
+    - 'Giving MemGPT more tools': functions
   - 'Integrations':
-    - 'MemGPT + AutoGen': autogen.md
+    - 'MemGPT + AutoGen': autogen
   - 'Advanced':
-    - 'Configuring storage backends': storage.md
-    - 'Adding support for new LLMs': adding_wrappers.md
-    - 'Contributing to the codebase': contributing.md
+    - 'Configuring storage backends': storage
+    - 'Adding support for new LLMs': adding_wrappers
+    - 'Contributing to the codebase': contributing
 theme:
   name: material
   features:
