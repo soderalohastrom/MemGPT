@@ -18,6 +18,8 @@ class ChromaStorageConnector(StorageConnector):
         super().__init__(table_type=table_type, agent_config=agent_config)
         config = MemGPTConfig.load()
 
+        assert table_type == TableType.ARCHIVAL_MEMORY, "Chroma only supports archival memory"
+
         # create chroma client
         if config.archival_storage_path:
             self.client = chromadb.PersistentClient(config.archival_storage_path)
@@ -86,11 +88,12 @@ class ChromaStorageConnector(StorageConnector):
 
     def get_all(self, limit=10, filters: Optional[Dict] = {}) -> List[Record]:
         filters = self.get_filters(filters)
+        if self.collection.count() == 0:
+            return []
         results = self.collection.get(include=self.include, where=filters, limit=limit)
         return self.results_to_records(results)
 
-    def get(self, id: str, filters: Optional[Dict] = {}) -> Optional[Record]:
-        filters = self.get_filters(filters)
+    def get(self, id: str) -> Optional[Record]:
         results = self.collection.get(ids=[id])
         if len(results["ids"]) == 0:
             return None
@@ -140,6 +143,10 @@ class ChromaStorageConnector(StorageConnector):
         filters = self.get_filters(filters)
         self.collection.delete(where=filters)
 
+    def delete_table(self):
+        # drop collection
+        self.client.delete_collection(self.collection.name)
+
     def save(self):
         # save to persistence file (nothing needs to be done)
         printd("Saving chroma")
@@ -147,10 +154,9 @@ class ChromaStorageConnector(StorageConnector):
 
     def size(self, filters: Optional[Dict] = {}) -> int:
         # unfortuantely, need to use pagination to get filtering
-        count = 0
-        for records in self.get_all_paginated(page_size=100, filters=filters):
-            count += len(records)
-        return count
+        # warning: poor performance for large datasets
+        print("UPDATED ISZE FUNCTION")
+        return len(self.get_all(filters=filters))
 
     def list_data_sources(self):
         raise NotImplementedError
