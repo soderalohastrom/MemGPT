@@ -64,94 +64,94 @@ def get_db_model(table_name: str, table_type: TableType):
 
     if table_type == TableType.ARCHIVAL_MEMORY or table_type == TableType.PASSAGES:
         # create schema for archival memory
-        class PassageModel(Base):
-            """Defines data model for storing Passages (consisting of text, embedding)"""
+        # class PassageModel(Base):
+        #    """Defines data model for storing Passages (consisting of text, embedding)"""
 
-            __abstract__ = True  # this line is necessary
+        #    __abstract__ = True  # this line is necessary
 
-            # Assuming passage_id is the primary key
-            # id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-            id = Column(CommonUUID, primary_key=True, default=uuid.uuid4)
-            # id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-            user_id = Column(String, nullable=False)
-            text = Column(String, nullable=False)
-            doc_id = Column(String)
-            agent_id = Column(String)
-            data_source = Column(String)  # agent_name if agent, data_source name if from data source
-            embedding = mapped_column(Vector(config.embedding_dim))
-            metadata_ = Column(mutable_json_type(dbtype=JSONB, nested=True))
+        #    # Assuming passage_id is the primary key
+        #    # id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+        #    id = Column(CommonUUID, primary_key=True, default=uuid.uuid4)
+        #    # id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+        #    user_id = Column(String, nullable=False)
+        #    text = Column(String, nullable=False)
+        #    doc_id = Column(String)
+        #    agent_id = Column(String)
+        #    data_source = Column(String)  # agent_name if agent, data_source name if from data source
+        #    embedding = mapped_column(Vector(config.embedding_dim))
+        #    metadata_ = Column(mutable_json_type(dbtype=JSONB, nested=True))
 
-            def __repr__(self):
-                return f"<Passage(passage_id='{self.id}', text='{self.text}', embedding='{self.embedding})>"
+        #    def __repr__(self):
+        #        return f"<Passage(passage_id='{self.id}', text='{self.text}', embedding='{self.embedding})>"
 
-            def to_record(self):
-                return Passage(
-                    text=self.text,
-                    embedding=self.embedding,
-                    doc_id=self.doc_id,
-                    user_id=self.user_id,
-                    id=self.id,
-                    data_source=self.data_source,
-                    agent_id=self.agent_id,
-                    metadata=self.metadata_,
-                )
+        #    def to_record(self):
+        #        return Passage(
+        #            text=self.text,
+        #            embedding=self.embedding,
+        #            doc_id=self.doc_id,
+        #            user_id=self.user_id,
+        #            id=self.id,
+        #            data_source=self.data_source,
+        #            agent_id=self.agent_id,
+        #            metadata=self.metadata_,
+        #        )
 
         """Create database model for table_name"""
         class_name = f"{table_name.capitalize()}Model"
-        Model = type(class_name, (PassageModel,), {"__tablename__": table_name, "__table_args__": {"extend_existing": True}})
+        Model = type(class_name, (Passage,), {"__tablename__": table_name, "__table_args__": {"extend_existing": True}})
         return Model
     elif table_type == TableType.RECALL_MEMORY:
 
-        class MessageModel(Base):
-            """Defines data model for storing Message objects"""
+        # class MessageModel(Base):
+        #    """Defines data model for storing Message objects"""
 
-            __abstract__ = True  # this line is necessary
+        #    __abstract__ = True  # this line is necessary
 
-            # Assuming message_id is the primary key
-            # id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-            id = Column(CommonUUID, primary_key=True, default=uuid.uuid4)
-            # id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-            user_id = Column(String, nullable=False)
-            agent_id = Column(String, nullable=False)
+        #    # Assuming message_id is the primary key
+        #    # id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+        #    id = Column(CommonUUID, primary_key=True, default=uuid.uuid4)
+        #    # id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+        #    user_id = Column(String, nullable=False)
+        #    agent_id = Column(String, nullable=False)
 
-            # openai info
-            role = Column(String, nullable=False)
-            text = Column(String, nullable=False)
-            model = Column(String, nullable=False)
-            user = Column(String)  # optional: multi-agent only
+        #    # openai info
+        #    role = Column(String, nullable=False)
+        #    text = Column(String, nullable=False)
+        #    model = Column(String, nullable=False)
+        #    user = Column(String)  # optional: multi-agent only
 
-            # function info
-            function_name = Column(String)
-            function_args = Column(String)
-            function_response = Column(String)
+        #    # function info
+        #    function_name = Column(String)
+        #    function_args = Column(String)
+        #    function_response = Column(String)
 
-            embedding = mapped_column(Vector(config.embedding_dim))
+        #    embedding = mapped_column(Vector(config.embedding_dim))
 
-            # Add a datetime column, with default value as the current time
-            created_at = Column(DateTime(timezone=True), server_default=func.now())
+        #    # Add a datetime column, with default value as the current time
+        #    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-            def __repr__(self):
-                return f"<Message(message_id='{self.id}', text='{self.text}', embedding='{self.embedding})>"
+        #    def __repr__(self):
+        #        return f"<Message(message_id='{self.id}', text='{self.text}', embedding='{self.embedding})>"
 
-            def to_record(self):
-                return Message(
-                    user_id=self.user_id,
-                    agent_id=self.agent_id,
-                    role=self.role,
-                    user=self.user,
-                    text=self.text,
-                    model=self.model,
-                    function_name=self.function_name,
-                    function_args=self.function_args,
-                    function_response=self.function_response,
-                    embedding=self.embedding,
-                    created_at=self.created_at,
-                    id=self.id,
-                )
+        #    def to_record(self):
+        #        return Message(
+        #            user_id=self.user_id,
+        #            agent_id=self.agent_id,
+        #            role=self.role,
+        #            user=self.user,
+        #            text=self.text,
+        #            model=self.model,
+        #            function_name=self.function_name,
+        #            function_args=self.function_args,
+        #            function_response=self.function_response,
+        #            embedding=self.embedding,
+        #            created_at=self.created_at,
+        #            id=self.id,
+        #        )
 
         """Create database model for table_name"""
         class_name = f"{table_name.capitalize()}Model"
-        Model = type(class_name, (MessageModel,), {"__tablename__": table_name, "__table_args__": {"extend_existing": True}})
+        Model = type(class_name, (Message,), {"__tablename__": table_name, "__table_args__": {"extend_existing": True}})
         return Model
     else:
         raise ValueError(f"Table type {table_type} not implemented")
