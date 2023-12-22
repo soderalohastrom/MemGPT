@@ -6,7 +6,10 @@ import numpy as np
 
 
 from pgvector.sqlalchemy import Vector
+from sqlalchemy import Column, JSON
 from sqlmodel import Field, Session, SQLModel, create_engine
+
+from docarray.typing import NdArray
 
 
 # Defining schema objects:
@@ -19,7 +22,7 @@ class Record(SQLModel, table=True):
     Memory units are searched over by functions defined in the memory classes
     """
 
-    id: Optional[uuid.UUID] = Field(primary_key=True, default_factory=uuid.uuid4)
+    id: uuid.UUID = Field(primary_key=True, default_factory=uuid.uuid4)
     user_id: str
     agent_id: str
     text: str
@@ -32,7 +35,7 @@ class Record(SQLModel, table=True):
 class Message(SQLModel, table=True):
     """Representation of a message sent from the agent -> user. Also includes function calls."""
 
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    id: uuid.UUID = Field(primary_key=True, default_factory=uuid.uuid4)
     user_id: str
     agent_id: str
     role: str
@@ -43,7 +46,10 @@ class Message(SQLModel, table=True):
     function_name: Optional[str] = None  # name of function called
     function_args: Optional[str] = None  # args of function called
     function_response: Optional[str] = None  # response of function called
-    embedding: Optional[List[float]] = Field(default=None, sa_column=Vector(1536))
+    embedding: List[float] = Field(default=None, sa_column=Column(Vector(1536)))
+
+    class Config:
+        arbitrary_types_allowed = True
 
 
 class Document(SQLModel, table=True):
@@ -62,13 +68,15 @@ class Passage(SQLModel, table=True):
     It is a string of text with an assoidciated embedding.
     """
 
-    id: Optional[uuid.UUID] = Field(primary_key=True, default_factory=uuid.uuid4)
+    id: uuid.UUID = Field(primary_key=True, default_factory=uuid.uuid4)
     user_id: str
     text: str
     agent_id: Optional[str] = None  # set if contained in agent memory
     # TODO: don't hard code vector size
-    embedding: Optional[List[float]] = Field(sa_column=Vector(1536))
+    embedding: List[float] = Field(default=None, sa_column=Column(Vector(1536)))
     data_source: Optional[str] = None  # None if created by agent
     doc_id: Optional[str] = None
-    id: Optional[str] = None
-    metadata: Optional[dict] = {}
+    memgpt_metadata: Optional[dict] = Field(default={}, sa_column=Column(JSON))
+
+    class Config:
+        arbitrary_types_allowed = True
