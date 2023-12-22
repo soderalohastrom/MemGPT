@@ -1,4 +1,5 @@
 import chromadb
+import uuid
 import json
 import re
 from typing import Optional, List, Iterator, Dict
@@ -43,18 +44,22 @@ class ChromaStorageConnector(StorageConnector):
 
         # convert to chroma format
         chroma_filters = {"$and": []}
+        ids = []
         for key, value in filter_conditions.items():
+            if key == "id":
+                ids = [str(value)]
+                continue
             chroma_filters["$and"].append({key: {"$eq": value}})
-        return chroma_filters
+        return ids, chroma_filters
 
     def get_all_paginated(self, page_size: int, filters: Optional[Dict] = {}) -> Iterator[List[Record]]:
         offset = 0
-        filters = self.get_filters(filters)
+        ids, filters = self.get_filters(filters)
         print("FILTERS", filters)
         while True:
             # Retrieve a chunk of records with the given page_size
             print("querying...", self.collection.count(), "offset", offset, "page", page_size)
-            results = self.collection.get(offset=offset, limit=page_size, include=self.include, where=filters)
+            results = self.collection.get(ids=ids, offset=offset, limit=page_size, include=self.include, where=filters)
             print(len(results["embeddings"]))
 
             # If the chunk is empty, we've retrieved all records
@@ -69,32 +74,35 @@ class ChromaStorageConnector(StorageConnector):
 
     def results_to_records(self, results):
         # convert timestamps to datetime
+        print("ID", results["ids"])
+        print("ID TYPE", type(results["ids"][0]))
+        print(uuid.UUID(results["ids"][0]))
         for metadata in results["metadatas"]:
             if "created_at" in metadata:
                 metadata["created_at"] = timestamp_to_datetime(metadata["created_at"])
         if results["embeddings"]:  # may not be returned, depending on table type
             return [
-                self.type(text=text, embedding=embedding, id=id, **metadatas)
-                for (text, embedding, id, metadatas) in zip(
+                self.type(text=text, embedding=embedding, id=uuid.UUID(record_id), **metadatas)
+                for (text, record_id, embedding, metadatas) in zip(
                     results["documents"], results["ids"], results["embeddings"], results["metadatas"]
                 )
             ]
         else:
             # no embeddings
             return [
-                self.type(text=text, id=id, **metadatas)
+                self.type(text=text, id=uuid.UUID(id), **metadatas)
                 for (text, id, metadatas) in zip(results["documents"], results["ids"], results["metadatas"])
             ]
 
     def get_all(self, limit=10, filters: Optional[Dict] = {}) -> List[Record]:
-        filters = self.get_filters(filters)
+        ids, filters = self.get_filters(filters)
         if self.collection.count() == 0:
             return []
-        results = self.collection.get(include=self.include, where=filters, limit=limit)
+        results = self.collection.get(ids=ids, include=self.include, where=filters, limit=limit)
         return self.results_to_records(results)
 
     def get(self, id: str) -> Optional[Record]:
-        results = self.collection.get(ids=[id])
+        results = self.collection.get(ids=[str(id)])
         if len(results["ids"]) == 0:
             return None
         return self.results_to_records(results)[0]
@@ -140,8 +148,8 @@ class ChromaStorageConnector(StorageConnector):
             self.collection.add(documents=documents, embeddings=embeddings, ids=ids, metadatas=metadatas)
 
     def delete(self, filters: Optional[Dict] = {}):
-        filters = self.get_filters(filters)
-        self.collection.delete(where=filters)
+        ids, filters = self.get_filters(filters)
+        self.collection.delete(ids=ids, where=filters)
 
     def delete_table(self):
         # drop collection
@@ -155,14 +163,13 @@ class ChromaStorageConnector(StorageConnector):
     def size(self, filters: Optional[Dict] = {}) -> int:
         # unfortuantely, need to use pagination to get filtering
         # warning: poor performance for large datasets
-        print("UPDATED ISZE FUNCTION")
         return len(self.get_all(filters=filters))
 
     def list_data_sources(self):
         raise NotImplementedError
 
     def query(self, query: str, query_vec: List[float], top_k: int = 10, filters: Optional[Dict] = {}) -> List[Record]:
-        filters = self.get_filters(filters)
+        ids, filters = self.get_filters(filters)
         results = self.collection.query(query_embeddings=[query_vec], n_results=top_k, include=self.include, where=filters)
         return self.results_to_records(results)
 
