@@ -56,8 +56,8 @@ def generate_messages():
     return messages
 
 
-# @pytest.mark.parametrize("storage_connector", ["postgres", "chroma", "lancedb"])
-@pytest.mark.parametrize("storage_connector", ["chroma"])
+@pytest.mark.parametrize("storage_connector", ["postgres", "chroma", "lancedb"])
+# @pytest.mark.parametrize("storage_connector", ["chroma"])
 @pytest.mark.parametrize("table_type", [TableType.RECALL_MEMORY, TableType.ARCHIVAL_MEMORY])
 def test_storage(storage_connector, table_type):
 

@@ -258,7 +258,6 @@ class SQLStorageConnector(StorageConnector):
         session = self.Session()
         filters = self.get_filters({})
         results = session.query(self.db_model).filter(*filters).filter(func.lower(self.db_model.text).contains(func.lower(query))).all()
-        print(results)
         # return [self.type(**vars(result)) for result in results]
         return [result.to_record() for result in results]
 
@@ -266,7 +265,6 @@ class SQLStorageConnector(StorageConnector):
         session = self.Session()
         self.db_model.__table__.drop(session.bind)
         session.commit()
-        print("deleted", self.db_model)
 
     def delete(self, filters: Optional[Dict] = {}):
         session = self.Session()
@@ -312,8 +310,6 @@ class LanceDBConnector(StorageConnector):
             self.table_name = self.generate_table_name(name)
         else:
             raise ValueError("Must specify either agent config or name")
-
-        printd(f"Using table name {self.table_name}")
 
         # create table
         self.uri = config.archival_storage_uri
@@ -362,7 +358,7 @@ class LanceDBConnector(StorageConnector):
         if self.table:
             return len(self.table)
         else:
-            print(f"Table with name {self.table_name} not present")
+            printd(f"Table with name {self.table_name} not present")
             return 0
 
     def insert(self, passage: Passage):
