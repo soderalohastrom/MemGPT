@@ -17,12 +17,27 @@ jobs:
       - name: Check out repo 📚
         uses: actions/checkout@v4
 
-      - name: "Setup Python, Poetry and Dependencies"
-        uses: packetcoders/action-setup-cache-python-poetry@main
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
           python-version: "3.11"
-          poetry-version: "1.7.1"
-          install-args: "--all-extras"
+  
+      - name: Install poetry
+        run: pip install poetry
+  
+      - name: Set Poetry config
+        run: |
+          poetry config virtualenvs.in-project false
+          poetry config virtualenvs.path ~/.virtualenvs
+  
+      - name: Install dependencies using Poetry
+        run: |
+          poetry install --all-extras
+  
+      - name: Set Poetry config
+        run: |
+          poetry config virtualenvs.in-project false
+          poetry config virtualenvs.path ~/.virtualenvs
 
       - name: Generate openapi.json file 
         run: |
