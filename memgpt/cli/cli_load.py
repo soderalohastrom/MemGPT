@@ -15,6 +15,7 @@ import typer
 import uuid
 
 from memgpt.data_sources.connectors import load_data, DirectoryConnector, VectorDBConnector
+from memgpt.data_sources.connectors import load_data, DirectoryConnector, VectorDBConnector
 from memgpt.embeddings import embedding_model, check_and_split_text
 from memgpt.agent_store.storage import StorageConnector
 from memgpt.config import MemGPTConfig
